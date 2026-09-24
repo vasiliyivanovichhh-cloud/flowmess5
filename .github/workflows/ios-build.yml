@@ -2,17 +2,49 @@ name: iOS Build
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  test:
+  build:
     runs-on: macos-14
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Show generated files
         run: |
-          echo "GitHub Actions работает!"
-          sw_vers
-          xcodebuild -version
+          ls -la
+          find . -maxdepth 2 -name "*.xcodeproj" -print
+
+      - name: Build iOS Simulator app
+        run: |
+          xcodebuild \
+            -project FlowMessenger.xcodeproj \
+            -scheme FlowMessenger \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -derivedDataPath DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package app
+        run: |
+          mkdir -p artifact
+          ditto -c -k --sequesterRsrc --keepParent \
+            "DerivedData/Build/Products/Debug-iphonesimulator/FlowMessenger.app" \
+            "artifact/FlowMessenger-simulator.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowMessenger-iOS
+          path: artifact/FlowMessenger-simulator.zip
