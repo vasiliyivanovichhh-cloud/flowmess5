@@ -1,0 +1,17 @@
+import SwiftUI
+
+struct RootView: View {
+    @EnvironmentObject private var session: AppSession
+
+    var body: some View {
+        Group {
+            if session.currentUser == nil {
+                AuthView()
+            } else {
+                MainTabView()
+            }
+        }
+        .animation(.easeInOut, value: session.currentUser)
+    }
+}
+
