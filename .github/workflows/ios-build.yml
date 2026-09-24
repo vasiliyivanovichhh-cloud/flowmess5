@@ -8,31 +8,35 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Select Xcode
+        run: |
+          ls /Applications | grep Xcode
+          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer || true
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          xcodegen generate
 
-      - name: Find project and scheme
+      - name: Find project
         run: |
           PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
           echo "PROJECT=$PROJECT"
 
-          SCHEMES=$(xcodebuild -list -project "$PROJECT")
-          echo "$SCHEMES"
+          xcodebuild -list -project "$PROJECT"
 
       - name: Build iOS Simulator
         run: |
           PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-
-          echo "Building: $PROJECT"
 
           xcodebuild \
             -project "$PROJECT" \
@@ -45,14 +49,11 @@ jobs:
 
       - name: Find built app
         run: |
-          echo "Built applications:"
           find DerivedData -name "*.app" -type d -print
 
       - name: Package app
         run: |
           APP=$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)
-
-          echo "APP=$APP"
 
           mkdir -p artifact
 
