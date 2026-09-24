@@ -1,24 +1,24 @@
-name: Luma
+name: FlowMessenger
 options:
-  bundleIdPrefix: com.apple
+  bundleIdPrefix: com.flowmessenger
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
 settings:
   base:
-    PRODUCT_BUNDLE_IDENTIFIER: com.apple.flow
+    PRODUCT_BUNDLE_IDENTIFIER: com.flowmessenger.app
     SWIFT_VERSION: 5.0
     DEVELOPMENT_TEAM: ""
     INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
-    INFOPLIST_KEY_NSCameraUsageDescription: Luma uses the camera to send photos and videos.
-    INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Luma uses your photo library to send media.
-    INFOPLIST_KEY_NSMicrophoneUsageDescription: Luma uses the microphone to record voice messages.
+    INFOPLIST_KEY_NSCameraUsageDescription: Flow uses the camera to send media.
+    INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Flow uses the photo library to send media.
+    INFOPLIST_KEY_NSMicrophoneUsageDescription: Flow uses the microphone for voice messages.
 packages:
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk
     from: 11.0.0
 targets:
-  Luma:
+  FlowMessenger:
     type: application
     platform: iOS
     sources:
@@ -27,8 +27,8 @@ targets:
       - path: GoogleService-Info.plist
     settings:
       base:
-        PRODUCT_NAME: Luma
-        INFOPLIST_KEY_CFBundleDisplayName: Luma
+        PRODUCT_NAME: Flow
+        INFOPLIST_KEY_CFBundleDisplayName: Flow
     dependencies:
       - package: Firebase
         product: FirebaseCore
