@@ -20,19 +20,23 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Find Xcode project
+      - name: Find project and scheme
         run: |
-          echo "Xcode projects:"
-          find . -name "*.xcodeproj" -maxdepth 3 -print
+          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+          echo "PROJECT=$PROJECT"
 
-      - name: Build app
+          SCHEMES=$(xcodebuild -list -project "$PROJECT")
+          echo "$SCHEMES"
+
+      - name: Build iOS Simulator
         run: |
           PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
 
-          echo "Using project: $PROJECT"
+          echo "Building: $PROJECT"
 
           xcodebuild \
             -project "$PROJECT" \
+            -scheme Luma \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             -derivedDataPath DerivedData \
@@ -41,13 +45,14 @@ jobs:
 
       - name: Find built app
         run: |
+          echo "Built applications:"
           find DerivedData -name "*.app" -type d -print
 
       - name: Package app
         run: |
           APP=$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)
 
-          echo "Using app: $APP"
+          echo "APP=$APP"
 
           mkdir -p artifact
 
