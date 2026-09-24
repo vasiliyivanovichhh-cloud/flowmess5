@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AuthView: View {
     @EnvironmentObject private var session: AppSession
-    @State private var isRegistering = false
+    @State private var registerMode = false
     @State private var email = ""
     @State private var password = ""
     @State private var username = ""
@@ -11,71 +11,48 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [AppTheme.accent, AppTheme.secondary], startPoint: .topLeading, endPoint: .bottomTrailing)
-                .ignoresSafeArea()
+            LinearGradient(colors: [AppTheme.accent, AppTheme.secondary], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 22) {
-                    Image(systemName: "bubble.left.and.bubble.right.fill")
-                        .font(.system(size: 54))
-                        .foregroundStyle(.white)
-                        .padding(.top, 55)
-                    Text("Luma")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                    Text(isRegistering ? "Создайте свой аккаунт" : "Общайтесь легко и красиво")
-                        .foregroundStyle(.white.opacity(0.85))
+                    Spacer(minLength: 35)
+                    Image(systemName: "bubble.left.and.bubble.right.fill").font(.system(size: 56)).foregroundStyle(.white)
+                    Text("Flow").font(.system(size: 44, weight: .bold, design: .rounded)).foregroundStyle(.white)
+                    Text(registerMode ? "Создайте аккаунт Flow" : "Общайтесь. Быстро. Красиво.").foregroundStyle(.white.opacity(0.9))
                     VStack(spacing: 14) {
-                        if isRegistering {
-                            TextField("Ваше имя", text: $displayName)
-                                .textContentType(.name)
-                            TextField("Имя пользователя", text: $username)
-                                .textContentType(.username)
+                        if registerMode {
+                            TextField("Имя", text: $displayName)
+                            TextField("Username", text: $username).textInputAutocapitalization(.never)
                         }
-                        TextField("Электронная почта", text: $email)
-                            .textContentType(.emailAddress)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                        SecureField("Пароль", text: $password)
-                            .textContentType(isRegistering ? .newPassword : .password)
-                        Button {
-                            let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if cleanEmail.isEmpty || !cleanEmail.contains("@") || password.count < 6 {
-                                errorMessage = "Введите корректную почту и пароль минимум из 6 символов."
-                            } else if isRegistering && (displayName.isEmpty || username.isEmpty) {
-                                errorMessage = "Заполните имя и username."
-                            } else if isRegistering {
-                                session.register(email: cleanEmail, password: password, username: username, displayName: displayName) { error in
-                                    errorMessage = error ?? ""
-                                }
-                            } else {
-                                session.signIn(email: cleanEmail, password: password) { error in
-                                    errorMessage = error ?? ""
-                                }
-                            }
-                        } label: {
-                            Text(session.isLoading ? "Подождите…" : (isRegistering ? "Создать аккаунт" : "Войти"))
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 15)
-                                .background(.white)
+                        TextField("Email", text: $email).keyboardType(.emailAddress).textInputAutocapitalization(.never).textContentType(.emailAddress)
+                        SecureField("Пароль", text: $password).textContentType(registerMode ? .newPassword : .password)
+                        Button(action: submit) {
+                            Text(session.isLoading ? "Подождите…" : (registerMode ? "Создать аккаунт" : "Войти"))
+                                .fontWeight(.bold).frame(maxWidth: .infinity).padding(.vertical, 15)
+                                .background(.white, in: RoundedRectangle(cornerRadius: 16))
                                 .foregroundStyle(AppTheme.accent)
-                                .clipShape(RoundedRectangle(cornerRadius: 15))
                         }
-                        if !errorMessage.isEmpty {
-                            Text(errorMessage).font(.footnote).foregroundStyle(.yellow)
-                        }
+                        if !errorMessage.isEmpty { Text(errorMessage).font(.footnote).foregroundStyle(.yellow).multilineTextAlignment(.center) }
                     }
-                    .padding(20)
-                    .background(.white.opacity(0.16), in: RoundedRectangle(cornerRadius: 24))
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(.white)
-                    Button(isRegistering ? "У меня уже есть аккаунт" : "Создать новый аккаунт") {
-                        withAnimation { isRegistering.toggle() }
-                    }
-                    .foregroundStyle(.white)
-                }
-                .padding(24)
+                    .padding(20).background(.white.opacity(0.15), in: RoundedRectangle(cornerRadius: 24))
+                    .textFieldStyle(.plain).foregroundStyle(.white)
+                    Button(registerMode ? "Уже есть аккаунт" : "Создать аккаунт") { withAnimation { registerMode.toggle(); errorMessage = "" } }
+                        .foregroundStyle(.white)
+                    Spacer(minLength: 20)
+                }.padding(24)
             }
+        }
+    }
+
+    private func submit() {
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanName = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanEmail.contains("@"), password.count >= 6 else { errorMessage = "Введите корректный email и пароль минимум из 6 символов."; return }
+        if registerMode {
+            guard !cleanName.isEmpty, !cleanUsername.isEmpty else { errorMessage = "Заполните имя и username."; return }
+            session.register(email: cleanEmail, password: password, username: cleanUsername, displayName: cleanName) { errorMessage = $0 ?? "" }
+        } else {
+            session.signIn(email: cleanEmail, password: password) { errorMessage = $0 ?? "" }
         }
     }
 }
