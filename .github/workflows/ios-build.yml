@@ -14,52 +14,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
+      - name: Select installed Xcode
+        shell: bash
         run: |
-          ls /Applications | grep Xcode
-          sudo xcode-select -s /Applications/Xcode_26.0.app/Contents/Developer || true
+          set -e
+          echo "Installed Xcode versions:"
+          find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V
+
+          XCODE_PATH=$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V | tail -n 1)
+          if [ -z "$XCODE_PATH" ]; then
+            echo "No Xcode installation found"
+            exit 1
+          fi
+
+          echo "Using: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
           xcodebuild -version
+          xcodebuild -showsdks
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode project
         run: |
+          set -e
           xcodegen generate
+          test -d Luma.xcodeproj
+          echo "Generated Luma.xcodeproj"
 
-      - name: Find project
+      - name: Show project
         run: |
-          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-          echo "PROJECT=$PROJECT"
+          xcodebuild -list -project Luma.xcodeproj
 
-          xcodebuild -list -project "$PROJECT"
+      - name: Find available iOS Simulator
+        shell: bash
+        run: |
+          set -e
+          DESTINATION=$(xcrun simctl list devices available |             grep -E 'iPhone' |             grep -v 'unavailable' |             head -n 1 |             sed 's/^[[:space:]]*//' |             sed 's/ (.*$//' |             sed 's/^/platform=iOS Simulator,name=/' )
+
+          if [ -z "$DESTINATION" ]; then
+            echo "No available iPhone Simulator found"
+            xcrun simctl list devices available
+            exit 1
+          fi
+
+          echo "DESTINATION=$DESTINATION"
+          echo "DESTINATION=$DESTINATION" >> "$GITHUB_ENV"
 
       - name: Build iOS Simulator
         run: |
-          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-
-          xcodebuild \
-            -project "$PROJECT" \
-            -scheme Luma \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -derivedDataPath DerivedData \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          set -e
+          xcodebuild             -project Luma.xcodeproj             -scheme Luma             -sdk iphonesimulator             -destination "$DESTINATION"             -derivedDataPath DerivedData             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build
 
       - name: Find built app
         run: |
+          set -e
           find DerivedData -name "*.app" -type d -print
+          test -n "$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)"
 
       - name: Package app
         run: |
+          set -e
           APP=$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)
-
           mkdir -p artifact
-
-          ditto -c -k --sequesterRsrc --keepParent \
-            "$APP" \
-            "artifact/FlowMessenger-simulator.zip"
+          ditto -c -k --sequesterRsrc --keepParent             "$APP"             "artifact/FlowMessenger-simulator.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
