@@ -1,86 +1,54 @@
 name: iOS Build
-
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-
+    branches: [main]
 jobs:
   build:
     runs-on: macos-15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Select installed Xcode
+      - name: Select latest Xcode
         shell: bash
         run: |
-          set -e
-          echo "Installed Xcode versions:"
-          find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V
-
-          XCODE_PATH=$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V | tail -n 1)
-          if [ -z "$XCODE_PATH" ]; then
-            echo "No Xcode installation found"
-            exit 1
-          fi
-
-          echo "Using: $XCODE_PATH"
+          set -euo pipefail
+          XCODE_PATH="$(find /Applications -maxdepth 1 -type d -name 'Xcode*.app' -print | sort -V | tail -n 1)"
+          test -n "$XCODE_PATH"
           sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
           xcodebuild -version
-          xcodebuild -showsdks
-
       - name: Install XcodeGen
         run: brew install xcodegen
-
-      - name: Generate Xcode project
+      - name: Generate project
         run: |
-          set -e
+          set -euo pipefail
           xcodegen generate
-          test -d Luma.xcodeproj
-          echo "Generated Luma.xcodeproj"
-
-      - name: Show project
-        run: |
-          xcodebuild -list -project Luma.xcodeproj
-
-      - name: Find available iOS Simulator
+          test -d FlowMessenger.xcodeproj
+          xcodebuild -list -project FlowMessenger.xcodeproj
+      - name: Find simulator
         shell: bash
         run: |
-          set -e
-          DESTINATION=$(xcrun simctl list devices available |             grep -E 'iPhone' |             grep -v 'unavailable' |             head -n 1 |             sed 's/^[[:space:]]*//' |             sed 's/ (.*$//' |             sed 's/^/platform=iOS Simulator,name=/' )
-
-          if [ -z "$DESTINATION" ]; then
-            echo "No available iPhone Simulator found"
+          set -euo pipefail
+          DEVICE="$(xcrun simctl list devices available | grep -E 'iPhone' | grep -v unavailable | head -n 1 | sed -E 's/^[[:space:]]*([^ (]+( [^ (]+)*) \(.*/\1/' || true)"
+          if [ -z "$DEVICE" ]; then
+            echo "No iPhone simulator available"
             xcrun simctl list devices available
             exit 1
           fi
-
-          echo "DESTINATION=$DESTINATION"
-          echo "DESTINATION=$DESTINATION" >> "$GITHUB_ENV"
-
-      - name: Build iOS Simulator
+          echo "DESTINATION=platform=iOS Simulator,name=$DEVICE" >> "$GITHUB_ENV"
+      - name: Build
         run: |
-          set -e
-          xcodebuild             -project Luma.xcodeproj             -scheme Luma             -sdk iphonesimulator             -destination "$DESTINATION"             -derivedDataPath DerivedData             CODE_SIGNING_ALLOWED=NO             CODE_SIGNING_REQUIRED=NO             build
-
-      - name: Find built app
+          set -euo pipefail
+          xcodebuild -project FlowMessenger.xcodeproj -scheme FlowMessenger -sdk iphonesimulator -destination "$DESTINATION" -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
+      - name: Package
         run: |
-          set -e
-          find DerivedData -name "*.app" -type d -print
-          test -n "$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)"
-
-      - name: Package app
-        run: |
-          set -e
-          APP=$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)
+          set -euo pipefail
+          APP="$(find DerivedData -path '*Debug-iphonesimulator/*.app' -type d | head -n 1)"
+          test -n "$APP"
           mkdir -p artifact
-          ditto -c -k --sequesterRsrc --keepParent             "$APP"             "artifact/FlowMessenger-simulator.zip"
-
-      - name: Upload artifact
+          ditto -c -k --sequesterRsrc --keepParent "$APP" artifact/FlowMessenger-iOS-Simulator.zip
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: FlowMessenger-iOS
-          path: artifact/FlowMessenger-simulator.zip
+          path: artifact/FlowMessenger-iOS-Simulator.zip
