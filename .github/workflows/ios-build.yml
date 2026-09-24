@@ -20,27 +20,39 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      - name: Show generated files
+      - name: Find Xcode project
         run: |
-          ls -la
-          find . -maxdepth 2 -name "*.xcodeproj" -print
+          echo "Xcode projects:"
+          find . -name "*.xcodeproj" -maxdepth 3 -print
 
-      - name: Build iOS Simulator app
+      - name: Build app
         run: |
+          PROJECT=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+
+          echo "Using project: $PROJECT"
+
           xcodebuild \
-            -project FlowMessenger.xcodeproj \
-            -scheme FlowMessenger \
+            -project "$PROJECT" \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
             -derivedDataPath DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Find built app
+        run: |
+          find DerivedData -name "*.app" -type d -print
+
       - name: Package app
         run: |
+          APP=$(find DerivedData -path "*Debug-iphonesimulator/*.app" -type d | head -n 1)
+
+          echo "Using app: $APP"
+
           mkdir -p artifact
+
           ditto -c -k --sequesterRsrc --keepParent \
-            "DerivedData/Build/Products/Debug-iphonesimulator/FlowMessenger.app" \
+            "$APP" \
             "artifact/FlowMessenger-simulator.zip"
 
       - name: Upload artifact
